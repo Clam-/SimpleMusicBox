@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">SimpleMusixBox</string>
+
+    <string name="prev_song">Previous\nSong</string>
+    <string name="play">Play</string>
+    <string name="next_song">Next\nSong</string>
+    <string name="prev_record">Previous\nRecord</string>
+    <string name="stop">Stop</string>
+    <string name="next_record">Next\nRecord</string>
+    <string name="off">OFF</string>
+    <string name="on">ON</string>
+
+</resources>
