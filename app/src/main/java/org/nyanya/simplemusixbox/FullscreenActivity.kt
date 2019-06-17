@@ -1,5 +1,10 @@
 package org.nyanya.simplemusixbox
 
+import android.content.BroadcastReceiver
+import android.content.Context
+import android.content.Intent
+import android.content.Intent.*
+import android.content.IntentFilter
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
 import android.os.Environment.getExternalStorageDirectory
@@ -30,8 +35,7 @@ class FullscreenActivity : AppCompatActivity() {
     }
     private var mVisible: Boolean = false
     private var mPlayerVis: Boolean = true
-    private var mFolder: File? = null
-    private var mIndex: Int = 0
+    protected var musicIterator: MusicIterator = MusicIterator()
     private val mHideRunnable = Runnable { hide() }
     /**
      * Touch listener to use for in-layout UI controls to delay hiding the
@@ -45,12 +49,29 @@ class FullscreenActivity : AppCompatActivity() {
         false
     }
 
+    private val mediaReceiver: BroadcastReceiver = MediaUpdated()
+
+    class MediaUpdated : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            val mApplication = context.applicationContext as FullscreenActivity
+            mApplication.musicIterator.updateState()
+        }
+    }
+
+    val mountFilter = IntentFilter(ACTION_MEDIA_MOUNTED)
+    var unmountFilter = IntentFilter(ACTION_MEDIA_EJECT)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_fullscreen)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         button_power.setOnClickListener { togglePlayer() }
+
+        unmountFilter = IntentFilter(ACTION_MEDIA_EJECT)
+        unmountFilter.addAction(ACTION_MEDIA_REMOVED)
+
+        button_nextsong.setOnClickListener{ next() }
     }
 
     override fun onPostCreate(savedInstanceState: Bundle?) {
@@ -60,6 +81,19 @@ class FullscreenActivity : AppCompatActivity() {
         // created, to briefly hint to the user that UI controls
         // are available.
         delayedHide(100)
+        musicIterator.updateState()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        registerReceiver(mediaReceiver, mountFilter)
+        registerReceiver(mediaReceiver, unmountFilter)
+        musicIterator.updateState()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        unregisterReceiver(mediaReceiver)
     }
 
     private fun togglePlayer() {
@@ -112,14 +146,17 @@ class FullscreenActivity : AppCompatActivity() {
     }
 
     private fun next() {
-        if (!mFolder) {
-            mFolder = getExternalStorageDirectory()
-            mIndex = 0
-            val files = mFolder?.list()
-            if (files?.isNotEmpty() == true) {
-                files[0].
+        try {
+            var f = musicIterator.nextTrack()
+            if (f == null) {
+                track_title.text = "End?"
+            } else {
+                track_title.text = f.path
             }
-
+        } catch (e: MusicIterator.NoFiles) {
+            track_title.text = "No tracks found"
+        } catch (e: MusicIterator.NoMedia) {
+            track_title.text = "No media inserted"
         }
     }
 
