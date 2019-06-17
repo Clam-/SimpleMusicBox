@@ -162,6 +162,5 @@ class FullscreenActivity : AppCompatActivity() {
          * and a change of the status and navigation bar.
          */
         private val UI_ANIMATION_DELAY = 300
-        private val TYPES = arrayOf("mp3", "flac", "m4a", "wav")
     }
 }
