@@ -14,6 +14,7 @@ class MusicIterator() {
     var files: Array<File> = arrayOf()
     var found: Boolean = false
     var online: Boolean = false
+    var current: File? = null
 
     init {
 
@@ -90,6 +91,7 @@ class MusicIterator() {
         f = files[index]
         index++
         found = true
+        current = f
         return f
     }
 
@@ -116,6 +118,7 @@ class MusicIterator() {
         f = files[index]
         index++
         found = true
+        current = f
         return f
     }
 

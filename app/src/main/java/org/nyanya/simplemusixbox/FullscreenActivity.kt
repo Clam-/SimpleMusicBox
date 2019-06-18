@@ -5,13 +5,13 @@ import android.content.Context
 import android.content.Intent
 import android.content.Intent.*
 import android.content.IntentFilter
+import android.media.MediaPlayer
 import android.support.v7.app.AppCompatActivity
 import android.os.Bundle
-import android.os.Environment.getExternalStorageDirectory
 import android.os.Handler
+import android.util.Log
 import android.view.View
 import kotlinx.android.synthetic.main.activity_fullscreen.*
-import java.io.File
 
 class FullscreenActivity : AppCompatActivity() {
     private val mHideHandler = Handler()
@@ -36,6 +36,7 @@ class FullscreenActivity : AppCompatActivity() {
     private var mVisible: Boolean = false
     private var mPlayerVis: Boolean = true
     protected var musicIterator: MusicIterator = MusicIterator()
+    var mediaPlayer: MediaPlayer = MediaPlayer()
     private val mHideRunnable = Runnable { hide() }
     /**
      * Touch listener to use for in-layout UI controls to delay hiding the
@@ -58,8 +59,8 @@ class FullscreenActivity : AppCompatActivity() {
         }
     }
 
-    val mountFilter = IntentFilter(ACTION_MEDIA_MOUNTED)
-    var unmountFilter = IntentFilter(ACTION_MEDIA_EJECT)
+    private val mountFilter = IntentFilter(ACTION_MEDIA_MOUNTED)
+    private var unmountFilter = IntentFilter(ACTION_MEDIA_EJECT)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -67,11 +68,24 @@ class FullscreenActivity : AppCompatActivity() {
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         button_power.setOnClickListener { togglePlayer() }
+        button_nextsong.setOnClickListener{ next() }
+        button_stop.setOnClickListener{ stop() }
+        button_play.setOnClickListener { play() }
 
         unmountFilter = IntentFilter(ACTION_MEDIA_EJECT)
         unmountFilter.addAction(ACTION_MEDIA_REMOVED)
 
-        button_nextsong.setOnClickListener{ next() }
+        mediaPlayer.setOnPreparedListener{
+            mediaPlayer.start()
+        }
+        mediaPlayer.setOnErrorListener{ _: MediaPlayer, i: Int, i1: Int ->
+            Log.e("SMUSIX", "What hapen? $i - $i1")
+            mediaPlayer.reset()
+            true
+        }
+        mediaPlayer.setOnCompletionListener{
+            next()
+        }
     }
 
     override fun onPostCreate(savedInstanceState: Bundle?) {
@@ -146,17 +160,33 @@ class FullscreenActivity : AppCompatActivity() {
     }
 
     private fun next() {
+        mediaPlayer.reset()
         try {
             var f = musicIterator.nextTrack()
             if (f == null) {
                 track_title.text = "End?"
             } else {
-                track_title.text = f.path
+                mediaPlayer.setDataSource(f.path)
+                track_title.text = f.name
+                mediaPlayer.prepareAsync()
             }
         } catch (e: MusicIterator.NoFiles) {
             track_title.text = "No tracks found"
         } catch (e: MusicIterator.NoMedia) {
             track_title.text = "No media inserted"
+        }
+    }
+    private fun stop() {
+        mediaPlayer.reset()
+    }
+    private fun play() {
+        mediaPlayer.reset()
+        if (musicIterator.current == null) { next() }
+        else {
+            var f = musicIterator.current
+            mediaPlayer.setDataSource(f?.path)
+            track_title.text = f?.name
+            mediaPlayer.prepareAsync()
         }
     }
 
