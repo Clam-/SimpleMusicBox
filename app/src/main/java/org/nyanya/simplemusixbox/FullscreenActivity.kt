@@ -12,6 +12,9 @@ import android.os.Handler
 import android.util.Log
 import android.view.View
 import kotlinx.android.synthetic.main.activity_fullscreen.*
+import org.apache.commons.lang3.time.DurationFormatUtils
+import java.util.*
+import kotlin.concurrent.schedule
 
 class FullscreenActivity : AppCompatActivity() {
     private val mHideHandler = Handler()
@@ -36,7 +39,9 @@ class FullscreenActivity : AppCompatActivity() {
     private var mVisible: Boolean = false
     private var mPlayerVis: Boolean = true
     protected var musicIterator: MusicIterator = MusicIterator()
+    private var timer = Timer()
     var mediaPlayer: MediaPlayer = MediaPlayer()
+    var paused = false
     private val mHideRunnable = Runnable { hide() }
     /**
      * Touch listener to use for in-layout UI controls to delay hiding the
@@ -77,6 +82,7 @@ class FullscreenActivity : AppCompatActivity() {
 
         mediaPlayer.setOnPreparedListener{
             mediaPlayer.start()
+            paused = false
         }
         mediaPlayer.setOnErrorListener{ _: MediaPlayer, i: Int, i1: Int ->
             Log.e("SMUSIX", "What hapen? $i - $i1")
@@ -85,6 +91,15 @@ class FullscreenActivity : AppCompatActivity() {
         }
         mediaPlayer.setOnCompletionListener{
             next()
+        }
+        timer.schedule(200, 200) {
+            runOnUiThread {
+                if (mediaPlayer.isPlaying) {
+                    timecode.text = DurationFormatUtils.formatDuration(mediaPlayer.currentPosition.toLong(), "mm:ss") }
+                else if (!paused){
+                    timecode.text = "00:00"
+                }
+            }
         }
     }
 
@@ -123,7 +138,8 @@ class FullscreenActivity : AppCompatActivity() {
         button_play.visibility = View.INVISIBLE
         button_nextrecord.visibility = View.INVISIBLE
         track_title.visibility = View.INVISIBLE
-        artist.visibility = View.INVISIBLE
+        record.visibility = View.INVISIBLE
+        timecode.visibility = View.INVISIBLE
     }
     private fun showUI() {
         button_prevsong.visibility = View.VISIBLE
@@ -133,7 +149,8 @@ class FullscreenActivity : AppCompatActivity() {
         button_play.visibility = View.VISIBLE
         button_nextrecord.visibility = View.VISIBLE
         track_title.visibility = View.VISIBLE
-        artist.visibility = View.VISIBLE
+        record.visibility = View.VISIBLE
+        timecode.visibility = View.VISIBLE
     }
     private fun hidePlayer() {
         // hide buttons
@@ -178,15 +195,25 @@ class FullscreenActivity : AppCompatActivity() {
     }
     private fun stop() {
         mediaPlayer.reset()
+        button_play.text = getText(R.string.play)
     }
     private fun play() {
-        mediaPlayer.reset()
-        if (musicIterator.current == null) { next() }
-        else {
-            var f = musicIterator.current
-            mediaPlayer.setDataSource(f?.path)
-            track_title.text = f?.name
-            mediaPlayer.prepareAsync()
+        if (mediaPlayer.isPlaying) {
+            button_play.text = getText(R.string.play)
+            mediaPlayer.pause()
+        } else if (paused){
+            button_play.text = getText(R.string.pause)
+            mediaPlayer.start()
+        } else {
+            mediaPlayer.reset()
+            button_play.text = getText(R.string.pause)
+            if (musicIterator.current == null) { next() }
+            else {
+                var f = musicIterator.current
+                mediaPlayer.setDataSource(f?.path)
+                track_title.text = f?.name
+                mediaPlayer.prepareAsync()
+            }
         }
     }
 
