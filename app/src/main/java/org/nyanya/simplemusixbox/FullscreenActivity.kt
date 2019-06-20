@@ -11,6 +11,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.util.Log
 import android.view.View
+import android.view.WindowManager
 import kotlinx.android.synthetic.main.activity_fullscreen.*
 import org.apache.commons.lang3.time.DurationFormatUtils
 import java.util.*
@@ -40,7 +41,7 @@ class FullscreenActivity : AppCompatActivity() {
     private var mPlayerVis: Boolean = true
     protected var musicIterator: MusicIterator = MusicIterator()
     private var timer = Timer()
-    var mediaPlayer: MediaPlayer = MediaPlayer()
+    var mediaPlayer: MediaPlayer? = null
     var paused = false
     private val mHideRunnable = Runnable { hide() }
     /**
@@ -71,6 +72,7 @@ class FullscreenActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_fullscreen)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         button_power.setOnClickListener { togglePlayer() }
         button_nextsong.setOnClickListener{ next() }
@@ -79,28 +81,6 @@ class FullscreenActivity : AppCompatActivity() {
 
         unmountFilter = IntentFilter(ACTION_MEDIA_EJECT)
         unmountFilter.addAction(ACTION_MEDIA_REMOVED)
-
-        mediaPlayer.setOnPreparedListener{
-            mediaPlayer.start()
-            paused = false
-        }
-        mediaPlayer.setOnErrorListener{ _: MediaPlayer, i: Int, i1: Int ->
-            Log.e("SMUSIX", "What hapen? $i - $i1")
-            mediaPlayer.reset()
-            true
-        }
-        mediaPlayer.setOnCompletionListener{
-            next()
-        }
-        timer.schedule(200, 200) {
-            runOnUiThread {
-                if (mediaPlayer.isPlaying) {
-                    timecode.text = DurationFormatUtils.formatDuration(mediaPlayer.currentPosition.toLong(), "mm:ss") }
-                else if (!paused){
-                    timecode.text = "00:00"
-                }
-            }
-        }
     }
 
     override fun onPostCreate(savedInstanceState: Bundle?) {
@@ -117,15 +97,43 @@ class FullscreenActivity : AppCompatActivity() {
         super.onResume()
         registerReceiver(mediaReceiver, mountFilter)
         registerReceiver(mediaReceiver, unmountFilter)
+        val imp = MediaPlayer()
         musicIterator.updateState()
+        imp.setOnPreparedListener{
+            imp.start()
+            paused = false
+        }
+        imp.setOnErrorListener{ _: MediaPlayer, i: Int, i1: Int ->
+            Log.e("SMUSIX", "What hapen? $i - $i1")
+            imp.reset()
+            true
+        }
+        imp.setOnCompletionListener{
+            next()
+        }
+        timer = Timer()
+        timer.schedule(200, 200) {
+            runOnUiThread {
+                if (imp.isPlaying) {
+                    timecode.text = DurationFormatUtils.formatDuration(imp.currentPosition.toLong(), "mm:ss") }
+                else if (!paused){
+                    timecode.text = "00:00"
+                }
+            }
+        }
+        mediaPlayer = imp
     }
 
     override fun onPause() {
         super.onPause()
         unregisterReceiver(mediaReceiver)
+        mediaPlayer?.stop()
+        mediaPlayer?.release()
+        timer.cancel()
     }
 
     private fun togglePlayer() {
+        stop()
         if (mPlayerVis) { hidePlayer() }
         else { showPlayer() }
     }
@@ -177,15 +185,15 @@ class FullscreenActivity : AppCompatActivity() {
     }
 
     private fun next() {
-        mediaPlayer.reset()
+        mediaPlayer?.reset()
         try {
             var f = musicIterator.nextTrack()
             if (f == null) {
                 track_title.text = "End?"
             } else {
-                mediaPlayer.setDataSource(f.path)
+                mediaPlayer?.setDataSource(f.path)
                 track_title.text = f.name
-                mediaPlayer.prepareAsync()
+                mediaPlayer?.prepareAsync()
             }
         } catch (e: MusicIterator.NoFiles) {
             track_title.text = "No tracks found"
@@ -194,25 +202,29 @@ class FullscreenActivity : AppCompatActivity() {
         }
     }
     private fun stop() {
-        mediaPlayer.reset()
+        mediaPlayer?.stop()
+        paused = false
+        mediaPlayer?.reset()
         button_play.text = getText(R.string.play)
     }
     private fun play() {
-        if (mediaPlayer.isPlaying) {
+        if (mediaPlayer?.isPlaying == true) {
             button_play.text = getText(R.string.play)
-            mediaPlayer.pause()
+            mediaPlayer?.pause()
+            paused = true
         } else if (paused){
             button_play.text = getText(R.string.pause)
-            mediaPlayer.start()
+            mediaPlayer?.start()
+            paused = false
         } else {
-            mediaPlayer.reset()
+            mediaPlayer?.reset()
             button_play.text = getText(R.string.pause)
             if (musicIterator.current == null) { next() }
             else {
                 var f = musicIterator.current
-                mediaPlayer.setDataSource(f?.path)
+                mediaPlayer?.setDataSource(f?.path)
                 track_title.text = f?.name
-                mediaPlayer.prepareAsync()
+                mediaPlayer?.prepareAsync()
             }
         }
     }
